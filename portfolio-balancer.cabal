@@ -1,0 +1,33 @@
+name:                portfolio-balancer
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/portfolio-balancer#readme
+license:             MIT
+license-file:        LICENSE
+author:              Kyle J. Kress (@toastal)
+maintainer:          toastal@protonmail.com
+copyright:           2017 Kyle J. Kress (@toastal)
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+
+executable portfolio-balancer
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , aeson
+                     , bifunctors
+                     , bytestring
+                     , containers
+                     , endo
+                     , lens
+                     , lens-aeson
+                     , scientific
+                     , text
+                     , text-format
+                     , wreq
+
+
