@@ -42,13 +42,13 @@ data Holding =
 -- Schwab Free-Trade ETFs @ Lower-Risk
 holdings :: [Holding]
 holdings =
-  [ Holding SCHB 13 0.28  -- US Broad
-  , Holding SCHF 11 0.15  -- Foreign Developed
+  [ Holding SCHB 16 0.28  -- US Broad
+  , Holding SCHF 15 0.15  -- Foreign Developed
 
-  , Holding SCHE 10 0.10  -- Emerging
-  , Holding SCHD  5 0.09  -- US Dividend
+  , Holding SCHE 12 0.10  -- Emerging
+  , Holding SCHD  6 0.09  -- US Dividend
   , Holding SCHP  2 0.05  -- TIPS
-  , Holding TFI  15 0.26  -- Municipal Bond
+  , Holding TFI  16 0.26  -- Municipal Bond
   , Holding GII   2 0.04  -- Global Infrastructure
   , Holding PSAU  5 0.03  -- Precious Metals
   ]
