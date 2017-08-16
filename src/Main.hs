@@ -21,8 +21,9 @@ import Data.Text.Lens (_Text)
 import qualified Network.Wreq as Wreq
 
 
--- Edit these
+-- Edit These
 
+-- Available Ticker Symbols
 data TickerSymbol
   = SCHB
   | SCHF
@@ -30,28 +31,29 @@ data TickerSymbol
   | SCHD
   | SCHP
   | TFI
+  | BWX
   | GII
   | PSAU
   deriving (Bounded, Enum, Eq, Ord, Read, Show)
+
+-- Schwab Free-Trade ETFs @ Lower Risk
+holdings :: [Holding]
+holdings =
+  [ Holding SCHB 16 0.28  -- US Broad
+  , Holding SCHF 15 0.15  -- Foreign Developed
+  , Holding SCHE 12 0.10  -- Emerging
+  , Holding SCHD  6 0.09  -- US Dividend
+  , Holding SCHP  2 0.05  -- TIPS
+  , Holding TFI  12 0.20  -- US Municipal Bond
+  , Holding BWX   6 0.06  -- Intl. Treasury Bond
+  , Holding GII   2 0.04  -- Global Infrastructure
+  , Holding PSAU  5 0.03  -- Precious Metals
+  ]
 
 -- Symbol, Current Shares, Percent Target
 data Holding =
   Holding TickerSymbol Int Rational
   deriving (Eq)
-
--- Schwab Free-Trade ETFs @ Lower-Risk
-holdings :: [Holding]
-holdings =
-  [ Holding SCHB 16 0.28  -- US Broad
-  , Holding SCHF 15 0.15  -- Foreign Developed
-
-  , Holding SCHE 12 0.10  -- Emerging
-  , Holding SCHD  6 0.09  -- US Dividend
-  , Holding SCHP  2 0.05  -- TIPS
-  , Holding TFI  16 0.26  -- Municipal Bond
-  , Holding GII   2 0.04  -- Global Infrastructure
-  , Holding PSAU  5 0.03  -- Precious Metals
-  ]
 
 -- TODO: yeah
 instance Show Holding where
@@ -196,7 +198,7 @@ main = do
     -- TODO insert CLI var
     totalValue :: Rational
     totalValue =
-      holdingsTotal prices 0.0 holdings
+      holdingsTotal prices (27.0) holdings
 
     ( leftoverCash, newHoldings ) =
       refine prices totalValue
