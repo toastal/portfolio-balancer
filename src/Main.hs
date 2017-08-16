@@ -44,8 +44,8 @@ holdings =
   , Holding SCHE 12 0.10  -- Emerging
   , Holding SCHD  6 0.09  -- US Dividend
   , Holding SCHP  2 0.05  -- TIPS
-  , Holding TFI  12 0.20  -- US Municipal Bond
-  , Holding BWX   6 0.06  -- Intl. Treasury Bond
+  , Holding TFI  12 0.21  -- US Municipal Bond
+  , Holding BWX   6 0.05  -- Intl. Treasury Bond
   , Holding GII   2 0.04  -- Global Infrastructure
   , Holding PSAU  5 0.03  -- Precious Metals
   ]
