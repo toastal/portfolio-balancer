@@ -39,9 +39,9 @@ data TickerSymbol
 -- Schwab Free-Trade ETFs @ Lower Risk
 holdings :: [Holding]
 holdings =
-  [ Holding SCHB 16 0.28  -- US Broad
+  [ Holding SCHB 16 0.27  -- US Broad
   , Holding SCHF 15 0.15  -- Foreign Developed
-  , Holding SCHE 12 0.10  -- Emerging
+  , Holding SCHE 12 0.11  -- Emerging
   , Holding SCHD  6 0.09  -- US Dividend
   , Holding SCHP  2 0.05  -- TIPS
   , Holding TFI  12 0.20  -- US Municipal Bond
@@ -198,11 +198,11 @@ main = do
     -- TODO insert CLI var
     totalValue :: Rational
     totalValue =
-      holdingsTotal prices (27.0) holdings
+      holdingsTotal prices (12.5) holdings
 
     ( leftoverCash, newHoldings ) =
       refine prices totalValue
 
-  putStrLn $ "Total: " <> show (fromRational totalValue)
+  putStrLn $ "Total: $" <> show (fromRational totalValue)
   mapM_ print newHoldings
-  putStrLn $ "Cash: " <> show (fromRational leftoverCash)
+  putStrLn $ "Cash: $" <> show (fromIntegral (round $ leftoverCash * 100) / 100)
