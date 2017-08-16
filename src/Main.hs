@@ -39,7 +39,7 @@ data Holding =
   Holding TickerSymbol Int Rational
   deriving (Eq)
 
--- Schwab Free-Trade ETFs @ Low-Risk
+-- Schwab Free-Trade ETFs @ Lower-Risk
 holdings :: [Holding]
 holdings =
   [ Holding SCHB 13 0.28  -- US Broad
@@ -98,8 +98,9 @@ holdingsTargetDelta xs ys =
   abs . mean $ zipWith (\(Holding _ _ tx) (Holding _ _ ty) -> tx - ty) xs ys
   where
     mean :: [Rational] -> Rational
-    mean [] = 100.0
-    mean zs = sum zs / (fromIntegral . length) zs
+    mean = \case
+      [] -> 100.0
+      zs -> sum zs / (fromIntegral . length) zs
 
 -- Increments holding, then recalculates the percentages
 incHoldingWhere :: Map TickerSymbol Rational -> Rational -> TickerSymbol -> E [Holding]
