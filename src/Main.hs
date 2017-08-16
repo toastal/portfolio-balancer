@@ -39,7 +39,7 @@ data Holding =
   Holding TickerSymbol Int Rational
   deriving (Eq)
 
--- Low-Risk Schwab
+-- Schwab Free-Trade ETFs @ Low-Risk
 holdings :: [Holding]
 holdings =
   [ Holding SCHB 13 0.28  -- US Broad
@@ -135,7 +135,6 @@ refine prices totalValue =
     -- This becomes the base as we know we'll have extra values
     estimate :: [Holding]
     estimate =
-
       underEstimate <$> holdings
 
     ref :: Map TickerSymbol Rational -> Rational -> E (Rational, [Holding])
