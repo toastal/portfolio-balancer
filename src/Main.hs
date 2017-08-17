@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
+{-# LANGUAGE LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
 
 module Main where
 
@@ -12,7 +12,6 @@ import Data.Aeson.Lens (AsValue, _Number, _String, key, values)
 import Data.Bitraversable (bitraverse)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Internal as BSI
-import Data.Data (Data)
 import qualified Data.List as List
 import Data.Monoid ((<>))
 import Data.Monoid.Endo (E)
@@ -20,7 +19,6 @@ import qualified Data.Maybe as Maybe
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as Map
 import Data.Text.Lens (_Text)
-import qualified GHC.Generics as G
 import qualified Network.Wreq as Wreq
 
 
@@ -39,23 +37,23 @@ data Ticker
   | PSAU
   | GLTR
   | CGW
-  deriving (Data, Bounded, Enum, Eq, Ord, Read, Show)
+  deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
 -- Schwab Zero-Commission ETFs @ Lower Risk
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
 holdings :: [Holding]
 holdings =
-  [ Holding SCHB 16 0.27  -- US Broad
-  , Holding SCHF 15 0.15  -- Foreign Developed
-  , Holding SCHE 12 0.11  -- Emerging Markets
-  , Holding SCHD  6 0.09  -- US Dividend
-  , Holding TFI  12 0.19  -- US Municipal Bond
-  , Holding BWX   6 0.06  -- Intl. Treasury Bond
+  [ Holding SCHB 18 0.27  -- US Broad
+  , Holding SCHF 18 0.15  -- Foreign Developed
+  , Holding SCHE 16 0.11  -- Emerging Markets
+  , Holding SCHD  7 0.09  -- US Dividend
+  , Holding TFI  14 0.20  -- Municipal Bond
+  , Holding BWX   8 0.06  -- Intl. Treasury Bond
   , Holding SCHP  2 0.04  -- TIPS
-  , Holding GII   2 0.05  -- Global Infrastructure
-  , Holding PSAU  5 0.02  -- Mining
+  , Holding GII   3 0.04  -- Global Infrastructure
+  , Holding PSAU  5 0.01  -- Mining
   , Holding GLTR  0 0.01  -- Precious Metals
-  , Holding CGW   0 0.01  -- Water
+  , Holding CGW   1 0.02  -- Water
   ]
 
 -- Symbol, Current Shares, Percent Target
@@ -63,7 +61,7 @@ data Holding = Holding
   { _ticker :: Ticker
   , _shares :: Int
   , _target :: Rational
-  } deriving (Data, Eq, G.Generic)
+  } deriving (Eq)
 
 makeLenses ''Holding
 
@@ -182,7 +180,7 @@ refine prices totalValue =
 
 main :: IO ()
 main = do
-  putStr "Amout to transfer: "
+  putStr "Amount to transfer: $"
   transfer :: Float <- readLn
   putStrLn "--------------------------------------"
   let
