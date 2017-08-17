@@ -38,7 +38,7 @@ data TickerSymbol
   | CGW
   deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
--- Schwab Free-Trade ETFs @ Lower Risk
+-- Schwab Zero-Commission ETFs @ Lower Risk
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
 holdings :: [Holding]
 holdings =
