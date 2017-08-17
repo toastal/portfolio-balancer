@@ -44,7 +44,7 @@ holdings :: [Holding]
 holdings =
   [ Holding SCHB 16 0.27  -- US Broad
   , Holding SCHF 15 0.15  -- Foreign Developed
-  , Holding SCHE 12 0.11  -- Emerging
+  , Holding SCHE 12 0.11  -- Emerging Markets
   , Holding SCHD  6 0.09  -- US Dividend
   , Holding TFI  12 0.19  -- US Municipal Bond
   , Holding BWX   6 0.06  -- Intl. Treasury Bond
