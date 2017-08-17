@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric, LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
 
 module Main where
 
@@ -6,6 +6,7 @@ import Prelude
 
 import Control.Arrow ((>>>))
 import Control.Lens
+import Control.Lens.TH (makeLenses)
 import Data.Aeson.Types as AT
 import Data.Aeson.Lens (AsValue, _Number, _String, key, values)
 import Data.Bitraversable (bitraverse)
@@ -24,7 +25,7 @@ import qualified Network.Wreq as Wreq
 -- Edit These
 
 -- Available Ticker Symbols
-data TickerSymbol
+data Ticker
   = SCHB
   | SCHF
   | SCHE
@@ -56,45 +57,34 @@ holdings =
   ]
 
 -- Symbol, Current Shares, Percent Target
-data Holding =
-  Holding TickerSymbol Int Rational
-  deriving (Eq)
+data Holding = Holding
+  { _ticker :: Ticker
+  , _shares :: Int
+  , _target :: Rational
+  } deriving (Eq, Generic)
+
+makeLenses'' Holding
 
 -- TODO: yeah
 instance Show Holding where
   show (Holding s h t) =
     show s <> " : " <> show h <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
 
-toStockPriceTuple :: AsValue t => t -> Maybe ( TickerSymbol, Rational )
-toStockPriceTuple v =
-  bitraverse (v ^?) (\p -> v ^? p <&> toRational)
-    ( key "t" . _TickerSymbol, key "l" . _String . _Number )
-
-
--- Optics
-
-_TickerSymbol :: Prism' AT.Value TickerSymbol
-_TickerSymbol =
+_Ticker :: Prism' AT.Value Ticker
+_Ticker =
   _String . _Text . _Show
 
-_Symbol :: Lens' Holding TickerSymbol
-_Symbol =
-  lens (\(Holding s _ _) -> s) (\(Holding _ h t) s -> Holding s h t)
-
-_Shares :: Lens' Holding Int
-_Shares =
-  lens (\(Holding _ h _) -> h) (\(Holding s _ t) h -> Holding s h t)
-
-_Target :: Lens' Holding Rational
-_Target =
-  lens (\(Holding _ _ t) -> t) (\(Holding s h _) t -> Holding s h t)
+toStockPriceTuple :: AsValue t => t -> Maybe ( Ticker, Rational )
+toStockPriceTuple v =
+  bitraverse (v ^?) (\p -> v ^? p <&> toRational)
+    ( key "t" . _Ticker, key "l" . _String . _Number )
 
 googleFinanceAPI :: String
 googleFinanceAPI =
   "https://finance.google.com/finance/info?client=ig&alt=json&q="
-    <> (List.intercalate "," $ show <$> [ (minBound :: TickerSymbol) .. ])
+    <> (List.intercalate "," $ show <$> [ (minBound :: Ticker) .. ])
 
-holdingsTotal :: Map TickerSymbol Rational -> Rational -> [Holding] -> Rational
+holdingsTotal :: Map Ticker Rational -> Rational -> [Holding] -> Rational
 holdingsTotal prices =
   foldl $ \total (Holding s h _) ->
     total + ((Map.findWithDefault 0.0 s prices) * toRational h)
@@ -110,17 +100,17 @@ holdingsTargetDelta xs ys =
       zs -> sum zs / (fromIntegral . length) zs
 
 -- Increments holding, then recalculates the percentages
-incHoldingWhere :: Map TickerSymbol Rational -> Rational -> TickerSymbol -> E [Holding]
+incHoldingWhere :: Map Ticker Rational -> Rational -> Ticker -> E [Holding]
 incHoldingWhere prices value sym =
   map (\h -> if h ^. _Symbol == sym then h & _Shares +~ 1 else h)
     >>> map (\(Holding s h _) -> Holding s h (Map.findWithDefault 0.0 s prices * (toRational h) / value))
 
-pricesToTest :: Rational -> E (Map TickerSymbol Rational)
+pricesToTest :: Rational -> E (Map Ticker Rational)
 pricesToTest leftoverCash =
   Map.filter (leftoverCash >)
 
 -- TODO: this is garbage
-refine :: Map TickerSymbol Rational -> Rational -> (Rational, [Holding])
+refine :: Map Ticker Rational -> Rational -> (Rational, [Holding])
 refine prices totalValue =
   ref (pricesToTest leftC prices)
     leftC
@@ -146,17 +136,17 @@ refine prices totalValue =
       underEstimate <$> holdings
 
     -- This would be better solved via a 'coin counting' algorithm
-    ref :: Map TickerSymbol Rational -> Rational -> E (Rational, [Holding])
+    ref :: Map Ticker Rational -> Rational -> E (Rational, [Holding])
     ref filtPrices leftoverCash initial =
       if Map.null filtPrices then
         initial
       else
         let
-          incH :: TickerSymbol -> E [Holding]
+          incH :: Ticker -> E [Holding]
           incH =
             incHoldingWhere prices totalValue
 
-          testValues :: (Rational, [Holding]) -> TickerSymbol -> Rational -> (Rational, [Holding])
+          testValues :: (Rational, [Holding]) -> Ticker -> Rational -> (Rational, [Holding])
           testValues acc@( d, hs ) sym _price =
             let
               hs' :: [Holding]
@@ -200,7 +190,7 @@ main = do
       <&> over Wreq.responseBody (BS.dropWhile ((/=) $ BSI.c2w '['))
   let
     -- Put in State
-    prices :: Map TickerSymbol Rational
+    prices :: Map Ticker Rational
     prices =
       Map.fromList . Maybe.mapMaybe toStockPriceTuple $ r ^.. Wreq.responseBody . values
 
