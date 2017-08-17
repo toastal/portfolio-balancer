@@ -46,12 +46,12 @@ holdings =
   [ Holding SCHB 18 0.27  -- US Broad
   , Holding SCHF 18 0.15  -- Foreign Developed
   , Holding SCHE 16 0.11  -- Emerging Markets
-  , Holding SCHD  7 0.09  -- US Dividend
+  , Holding SCHD  7 0.08  -- US Dividend
   , Holding TFI  14 0.20  -- Municipal Bond
   , Holding BWX   8 0.06  -- Intl. Treasury Bond
   , Holding SCHP  2 0.04  -- TIPS
-  , Holding GII   3 0.04  -- Global Infrastructure
-  , Holding PSAU  5 0.01  -- Mining
+  , Holding GII   3 0.05  -- Global Infrastructure
+  , Holding PSAU  3 0.01  -- Mining
   , Holding GLTR  0 0.01  -- Precious Metals
   , Holding CGW   1 0.02  -- Water
   ]
