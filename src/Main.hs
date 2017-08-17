@@ -29,25 +29,30 @@ data TickerSymbol
   | SCHF
   | SCHE
   | SCHD
-  | SCHP
   | TFI
   | BWX
+  | SCHP
   | GII
   | PSAU
+  | GLTR
+  | CGW
   deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
 -- Schwab Free-Trade ETFs @ Lower Risk
+-- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
 holdings :: [Holding]
 holdings =
   [ Holding SCHB 16 0.27  -- US Broad
   , Holding SCHF 15 0.15  -- Foreign Developed
   , Holding SCHE 12 0.11  -- Emerging
   , Holding SCHD  6 0.09  -- US Dividend
-  , Holding SCHP  2 0.05  -- TIPS
   , Holding TFI  12 0.19  -- US Municipal Bond
   , Holding BWX   6 0.06  -- Intl. Treasury Bond
+  , Holding SCHP  2 0.04  -- TIPS
   , Holding GII   2 0.05  -- Global Infrastructure
-  , Holding PSAU  5 0.03  -- Precious Metals
+  , Holding PSAU  5 0.02  -- Mining
+  , Holding GLTR  0 0.01  -- Precious Metals
+  , Holding CGW   0 0.01  -- Water
   ]
 
 -- Symbol, Current Shares, Percent Target
@@ -101,7 +106,7 @@ holdingsTargetDelta xs ys =
   where
     mean :: [Rational] -> Rational
     mean = \case
-      [] -> 100.0
+      [] -> 1000.0  -- really far-off number
       zs -> sum zs / (fromIntegral . length) zs
 
 -- Increments holding, then recalculates the percentages
@@ -140,6 +145,7 @@ refine prices totalValue =
     estimate =
       underEstimate <$> holdings
 
+    -- This would be better solved via a 'coin counting' algorithm
     ref :: Map TickerSymbol Rational -> Rational -> E (Rational, [Holding])
     ref filtPrices leftoverCash initial =
       if Map.null filtPrices then
@@ -198,7 +204,7 @@ main = do
     -- TODO insert CLI var
     totalValue :: Rational
     totalValue =
-      holdingsTotal prices (500.0) holdings
+      holdingsTotal prices (1000.0) holdings
 
     ( leftoverCash, newHoldings ) =
       refine prices totalValue
