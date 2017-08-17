@@ -188,6 +188,9 @@ refine prices totalValue =
 
 main :: IO ()
 main = do
+  putStr "Amout to transfer: "
+  transfer :: Float <- readLn
+  putStrLn "--------------------------------------"
   let
     wreqOpts :: Wreq.Options
     wreqOpts =
@@ -204,11 +207,11 @@ main = do
     -- TODO insert CLI var
     totalValue :: Rational
     totalValue =
-      holdingsTotal prices (1000.0) holdings
+      holdingsTotal prices (toRational transfer) holdings
 
     ( leftoverCash, newHoldings ) =
       refine prices totalValue
 
-  putStrLn $ "Total: $" <> show (fromRational totalValue)
   mapM_ print newHoldings
   putStrLn $ "Cash: $" <> show (fromIntegral (round $ leftoverCash * 100) / 100)
+  putStrLn $ "Total: $" <> show (fromRational totalValue)
