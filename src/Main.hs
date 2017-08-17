@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
 
 module Main where
 
@@ -12,6 +12,7 @@ import Data.Aeson.Lens (AsValue, _Number, _String, key, values)
 import Data.Bitraversable (bitraverse)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Internal as BSI
+import Data.Data (Data)
 import qualified Data.List as List
 import Data.Monoid ((<>))
 import Data.Monoid.Endo (E)
@@ -19,6 +20,7 @@ import qualified Data.Maybe as Maybe
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as Map
 import Data.Text.Lens (_Text)
+import qualified GHC.Generics as G
 import qualified Network.Wreq as Wreq
 
 
@@ -37,7 +39,7 @@ data Ticker
   | PSAU
   | GLTR
   | CGW
-  deriving (Bounded, Enum, Eq, Ord, Read, Show)
+  deriving (Data, Bounded, Enum, Eq, Ord, Read, Show)
 
 -- Schwab Zero-Commission ETFs @ Lower Risk
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
@@ -61,9 +63,9 @@ data Holding = Holding
   { _ticker :: Ticker
   , _shares :: Int
   , _target :: Rational
-  } deriving (Eq, Generic)
+  } deriving (Data, Eq, G.Generic)
 
-makeLenses'' Holding
+makeLenses ''Holding
 
 -- TODO: yeah
 instance Show Holding where
@@ -86,8 +88,10 @@ googleFinanceAPI =
 
 holdingsTotal :: Map Ticker Rational -> Rational -> [Holding] -> Rational
 holdingsTotal prices =
-  foldl $ \total (Holding s h _) ->
-    total + ((Map.findWithDefault 0.0 s prices) * toRational h)
+  foldl $ \total h ->
+    let price = Map.findWithDefault 0.0 (h ^. ticker) prices
+    in total + (price * toRational (h ^. shares))
+
 
 -- Mean of the deltas between a pair of holdings
 holdingsTargetDelta :: [Holding] -> [Holding] -> Rational
@@ -102,7 +106,7 @@ holdingsTargetDelta xs ys =
 -- Increments holding, then recalculates the percentages
 incHoldingWhere :: Map Ticker Rational -> Rational -> Ticker -> E [Holding]
 incHoldingWhere prices value sym =
-  map (\h -> if h ^. _Symbol == sym then h & _Shares +~ 1 else h)
+  map (\h -> if h ^. ticker == sym then h & shares +~ 1 else h)
     >>> map (\(Holding s h _) -> Holding s h (Map.findWithDefault 0.0 s prices * (toRational h) / value))
 
 pricesToTest :: Rational -> E (Map Ticker Rational)
@@ -126,9 +130,9 @@ refine prices totalValue =
     underEstimate (Holding s _ t) =
       let
         price = Map.findWithDefault 0.0 s prices
-        shares = floor $ t * totalValue / price
+        shares' = floor $ t * totalValue / price
       in
-        Holding s shares ((fromInteger shares) * price / totalValue)
+        Holding s shares' ((fromInteger shares') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
     estimate :: [Holding]
