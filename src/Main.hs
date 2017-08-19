@@ -21,15 +21,15 @@ import qualified Network.Wreq as Wreq
 
 newtype Price =
   Price { unprice :: Rational }
-  deriving (Fractional, Eq, Num, Ord)
+  deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
 newtype Share =
   Share { unshare :: Int }
-  deriving (Eq, Num, Ord)
+  deriving (Eq, Num, Ord, Real, Show)
 
 newtype Target =
   Target { untarget :: Rational }
-  deriving (Fractional, Eq, Num, Ord)
+  deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
 -- Edit These
 
@@ -78,7 +78,7 @@ makeLenses ''Holding
 -- TODO: yeah
 instance Show Holding where
   show (Holding s h t) =
-    show s <> " : " <> show h <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
+    show s <> " : " <> show (unshare h) <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
 
 type StockPrices = Map Ticker Price
 
@@ -100,7 +100,7 @@ holdingsTotal :: StockPrices -> Rational -> [Holding] -> Rational
 holdingsTotal prices =
   foldl $ \total h ->
     let price = Map.findWithDefault 0.0 (h ^. ticker) prices
-    in total + (unprice price * toRational (h ^. shares & unshare))
+    in total + (unprice price * toRational (h ^. shares))
 
 
 -- Mean of the deltas between a pair of holdings
@@ -128,7 +128,7 @@ incHoldingWhere prices value sym =
       p :: Rational
       p = unprice $ Map.findWithDefault 0.0 (h ^. ticker) prices
     in
-      h & target .~ Target (p * (h ^. shares & unshare & toRational) / value)
+      h & target .~ Target (p * (h ^. shares & toRational) / value)
   )
 
 pricesToTest :: Rational -> E (StockPrices)
