@@ -88,7 +88,7 @@ _Ticker =
 
 toStockPriceTuple :: AsValue t => t -> Maybe ( Ticker, Price )
 toStockPriceTuple v =
-  bitraverse (v ^?) (\p -> v ^? p <&> toRational)
+  bitraverse (v ^?) (\p -> v ^? p <&> Price . toRational)
     ( key "t" . _Ticker, key "l" . _String . _Number )
 
 googleFinanceAPI :: String
@@ -106,8 +106,12 @@ holdingsTotal prices =
 -- Mean of the deltas between a pair of holdings
 holdingsTargetDelta :: [Holding] -> [Holding] -> Rational
 holdingsTargetDelta xs ys =
-  abs . mean $ zipWith (\(Holding _ _ tx) (Holding _ _ ty) -> tx - ty) xs ys
+  abs . mean $ zipWith ((fmap . fmap) untarget subtract') xs ys
   where
+    subtract' :: Holding -> Holding -> Target
+    subtract' x y =
+      (x ^. target) - (y ^. target)
+
     mean :: [Rational] -> Rational
     mean = \case
       [] -> 1000.0  -- really far-off number
@@ -116,12 +120,20 @@ holdingsTargetDelta xs ys =
 -- Increments holding, then recalculates the percentages
 incHoldingWhere :: StockPrices -> Rational -> Ticker -> E [Holding]
 incHoldingWhere prices value sym =
-  map (\h -> if h ^. ticker == sym then h & shares +~ 1 else h)
-    >>> map (\(Holding s h _) -> Holding s h (Map.findWithDefault 0.0 s prices * (toRational h) / value))
+  map (\holding ->
+    let
+      h :: Holding
+      h = if holding ^. ticker == sym then holding & shares +~ 1 else holding
+
+      p :: Rational
+      p = unprice $ Map.findWithDefault 0.0 (h ^. ticker) prices
+    in
+      h & target .~ Target (p * (h ^. shares & unshare & toRational) / value)
+  )
 
 pricesToTest :: Rational -> E (StockPrices)
 pricesToTest leftoverCash =
-  Map.filter (leftoverCash >)
+  Map.filter (Price leftoverCash >)
 
 -- find eligible tickers
 -- put those in a [()]
@@ -180,7 +192,7 @@ refine prices totalValue =
           incH =
             incHoldingWhere prices totalValue
 
-          testValues :: (Rational, [Holding]) -> Ticker -> Rational -> (Rational, [Holding])
+          testValues :: (Rational, [Holding]) -> Ticker -> Price -> (Rational, [Holding])
           testValues acc@( d, hs ) sym _price =
             let
               hs' :: [Holding]
