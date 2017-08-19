@@ -1,8 +1,6 @@
-{-# LANGUAGE LambdaCase, NoMonomorphismRestriction, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, LambdaCase, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
 
 module Main where
-
-import Prelude
 
 import Control.Arrow ((>>>))
 import Control.Lens
@@ -21,6 +19,17 @@ import qualified Data.Map.Lazy as Map
 import Data.Text.Lens (_Text)
 import qualified Network.Wreq as Wreq
 
+newtype Price =
+  Price { unprice :: Rational }
+  deriving (Fractional, Eq, Num, Ord)
+
+newtype Share =
+  Share { unshare :: Int }
+  deriving (Eq, Num, Ord)
+
+newtype Target =
+  Target { untarget :: Rational }
+  deriving (Fractional, Eq, Num, Ord)
 
 -- Edit These
 
@@ -30,6 +39,7 @@ data Ticker
   | SCHF
   | SCHE
   | SCHD
+  | DNL
   | TFI
   | BWX
   | SCHP
@@ -43,24 +53,24 @@ data Ticker
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
 holdings :: [Holding]
 holdings =
-  [ Holding SCHB 18 0.27  -- US Broad
-  , Holding SCHF 18 0.15  -- Foreign Developed
-  , Holding SCHE 16 0.11  -- Emerging Markets
+  [ Holding SCHB 18 0.25  -- US Broad
+  , Holding SCHF 22 0.16  -- Foreign Developed
+  , Holding SCHE 20 0.12  -- Emerging Markets
   , Holding SCHD  7 0.08  -- US Dividend
-  , Holding TFI  14 0.20  -- Municipal Bond
-  , Holding BWX   8 0.06  -- Intl. Treasury Bond
+  , Holding TFI  17 0.20  -- Municipal Bond
+  , Holding BWX   9 0.06  -- Intl. Treasury Bond
   , Holding SCHP  2 0.04  -- TIPS
-  , Holding GII   3 0.05  -- Global Infrastructure
+  , Holding GII   4 0.05  -- Global Infrastructure
   , Holding PSAU  3 0.01  -- Mining
-  , Holding GLTR  0 0.01  -- Precious Metals
-  , Holding CGW   1 0.02  -- Water
+  , Holding GLTR  1 0.01  -- Precious Metals
+  , Holding CGW   2 0.02  -- Water
   ]
 
 -- Symbol, Current Shares, Percent Target
 data Holding = Holding
   { _ticker :: Ticker
-  , _shares :: Int
-  , _target :: Rational
+  , _shares :: Share
+  , _target :: Target
   } deriving (Eq)
 
 makeLenses ''Holding
@@ -70,11 +80,13 @@ instance Show Holding where
   show (Holding s h t) =
     show s <> " : " <> show h <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
 
+type StockPrices = Map Ticker Price
+
 _Ticker :: Prism' AT.Value Ticker
 _Ticker =
   _String . _Text . _Show
 
-toStockPriceTuple :: AsValue t => t -> Maybe ( Ticker, Rational )
+toStockPriceTuple :: AsValue t => t -> Maybe ( Ticker, Price )
 toStockPriceTuple v =
   bitraverse (v ^?) (\p -> v ^? p <&> toRational)
     ( key "t" . _Ticker, key "l" . _String . _Number )
@@ -84,11 +96,11 @@ googleFinanceAPI =
   "https://finance.google.com/finance/info?client=ig&alt=json&q="
     <> (List.intercalate "," $ show <$> [ (minBound :: Ticker) .. ])
 
-holdingsTotal :: Map Ticker Rational -> Rational -> [Holding] -> Rational
+holdingsTotal :: StockPrices -> Rational -> [Holding] -> Rational
 holdingsTotal prices =
   foldl $ \total h ->
     let price = Map.findWithDefault 0.0 (h ^. ticker) prices
-    in total + (price * toRational (h ^. shares))
+    in total + (unprice price * toRational (h ^. shares & unshare))
 
 
 -- Mean of the deltas between a pair of holdings
@@ -102,17 +114,32 @@ holdingsTargetDelta xs ys =
       zs -> sum zs / (fromIntegral . length) zs
 
 -- Increments holding, then recalculates the percentages
-incHoldingWhere :: Map Ticker Rational -> Rational -> Ticker -> E [Holding]
+incHoldingWhere :: StockPrices -> Rational -> Ticker -> E [Holding]
 incHoldingWhere prices value sym =
   map (\h -> if h ^. ticker == sym then h & shares +~ 1 else h)
     >>> map (\(Holding s h _) -> Holding s h (Map.findWithDefault 0.0 s prices * (toRational h) / value))
 
-pricesToTest :: Rational -> E (Map Ticker Rational)
+pricesToTest :: Rational -> E (StockPrices)
 pricesToTest leftoverCash =
   Map.filter (leftoverCash >)
 
+-- find eligible tickers
+-- put those in a [()]
+-- take that price and subract it from the total
+-- try again and cat the results onto a list
+--
+-- fold/alternative + concatMap/subsequences ?
+
+{-
+possible :: Rational -> StockPrices -> [[(Ticker, Price)]]
+possible leftover prices
+  | Map.null prices = []
+  | otherwise =
+      Map.mapWithKey (\k v -> concatMap (\possible leftover
+      -}
+
 -- TODO: this is garbage
-refine :: Map Ticker Rational -> Rational -> (Rational, [Holding])
+refine :: StockPrices -> Rational -> (Rational, [Holding])
 refine prices totalValue =
   ref (pricesToTest leftC prices)
     leftC
@@ -127,10 +154,15 @@ refine prices totalValue =
     underEstimate :: E Holding
     underEstimate (Holding s _ t) =
       let
-        price = Map.findWithDefault 0.0 s prices
-        shares' = floor $ t * totalValue / price
+        price :: Rational
+        price =
+          unprice $ Map.findWithDefault 0.0 s prices
+
+        share' :: Int
+        share' =
+          floor $ (untarget t) * totalValue / price
       in
-        Holding s shares' ((fromInteger shares') * price / totalValue)
+        Holding s (Share share') (Target $ (fromIntegral share') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
     estimate :: [Holding]
@@ -138,7 +170,7 @@ refine prices totalValue =
       underEstimate <$> holdings
 
     -- This would be better solved via a 'coin counting' algorithm
-    ref :: Map Ticker Rational -> Rational -> E (Rational, [Holding])
+    ref :: StockPrices -> Rational -> E (Rational, [Holding])
     ref filtPrices leftoverCash initial =
       if Map.null filtPrices then
         initial
@@ -192,7 +224,7 @@ main = do
       <&> over Wreq.responseBody (BS.dropWhile ((/=) $ BSI.c2w '['))
   let
     -- Put in State
-    prices :: Map Ticker Rational
+    prices :: StockPrices
     prices =
       Map.fromList . Maybe.mapMaybe toStockPriceTuple $ r ^.. Wreq.responseBody . values
 
