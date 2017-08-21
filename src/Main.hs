@@ -2,6 +2,7 @@
 
 module Main where
 
+import Debug.Trace
 import Control.Arrow ((>>>))
 import Control.Lens
 import Control.Lens.TH (makeLenses)
@@ -39,7 +40,6 @@ data Ticker
   | SCHF
   | SCHE
   | SCHD
-  | DNL
   | TFI
   | BWX
   | SCHP
@@ -131,24 +131,58 @@ incHoldingWhere prices value sym =
       h & target .~ Target (p * (h ^. shares & toRational) / value)
   )
 
-pricesToTest :: Rational -> E (StockPrices)
-pricesToTest leftoverCash =
-  Map.filter (Price leftoverCash >)
 
--- find eligible tickers
--- put those in a [()]
--- take that price and subract it from the total
--- try again and cat the results onto a list
---
--- fold/alternative + concatMap/subsequences ?
+--redistribute :: StockPrices -> Rational -> (Rational, [Holding])
+redistribute totalValue prices =
+  possible leftoverAfterEstimate (pricesToTest leftoverAfterEstimate $ Map.toList prices)
+  where
+    underEstimate :: E Holding
+    underEstimate (Holding s _ t) =
+      let
+        price :: Rational
+        price =
+          unprice $ Map.findWithDefault 0.0 s prices
 
-{-
-possible :: Rational -> StockPrices -> [[(Ticker, Price)]]
-possible leftover prices
-  | Map.null prices = []
-  | otherwise =
-      Map.mapWithKey (\k v -> concatMap (\possible leftover
-      -}
+        share' :: Int
+        share' =
+          floor $ (untarget t) * totalValue / price
+      in
+        Holding s (Share share') (Target $ (fromIntegral share') * price / totalValue)
+
+    -- This becomes the base as we know we'll have extra values
+    estimate :: [Holding]
+    estimate =
+      underEstimate <$> holdings
+
+    leftoverAfterEstimate :: Rational
+    leftoverAfterEstimate =
+      totalValue - holdingsTotal prices 0.0 estimate
+
+    pricesToTest :: Rational -> E [(Ticker, Price)]
+    pricesToTest leftover =
+      --traceShowId .
+      filter (\(_, p) -> leftover > unprice p)
+
+    possible :: Rational -> [(Ticker, Price)] -> [[Ticker]]
+    possible lo ps = [] : possible' lo ps
+
+    -- this foldr just doesn't seem to be doing it... I'm losing the leftover value
+    possible' :: Rational -> [(Ticker, Price)] -> [[Ticker]]
+    possible' _ [] = []
+    possible' lo (x@(t, p):ps) =
+      let
+        leftover :: Rational
+        leftover = traceShow (fromRational $ lo - unprice p) (lo - unprice p)
+
+        nextPrices :: [(Ticker, Price)]
+        nextPrices = pricesToTest leftover (ps <> [traceShow (x ^. _2 & unprice & fromRational) x])
+
+        foldover :: [Ticker] -> [[Ticker]] -> [[Ticker]]
+        foldover ts tickers =
+          ts : (t : ts) : tickers
+      in
+        -- guard
+        if leftover < 0 then [] else [t] : foldr foldover [] (possible' leftover nextPrices)
 
 -- TODO: this is garbage
 refine :: StockPrices -> Rational -> (Rational, [Holding])
@@ -159,6 +193,10 @@ refine prices totalValue =
     , estimate
     )
   where
+    pricesToTest :: Rational -> E (StockPrices)
+    pricesToTest leftoverCash =
+      Map.filter (Price leftoverCash >)
+
     leftC :: Rational
     leftC =
       totalValue - holdingsTotal prices 0.0 holdings
@@ -248,6 +286,8 @@ main = do
     ( leftoverCash, newHoldings ) =
       refine prices totalValue
 
+
   mapM_ print newHoldings
   putStrLn $ "Cash: $" <> show (fromIntegral (round $ leftoverCash * 100) / 100)
   putStrLn $ "Total: $" <> show (fromRational totalValue)
+  --mapM_ print $  redistribute totalValue prices
