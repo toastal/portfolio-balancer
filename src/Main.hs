@@ -53,17 +53,17 @@ data Ticker
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
 holdings :: [Holding]
 holdings =
-  [ Holding SCHB 18 0.25  -- US Broad
-  , Holding SCHF 22 0.16  -- Foreign Developed
-  , Holding SCHE 20 0.12  -- Emerging Markets
-  , Holding SCHD  7 0.08  -- US Dividend
-  , Holding TFI  17 0.20  -- Municipal Bond
-  , Holding BWX   9 0.06  -- Intl. Treasury Bond
-  , Holding SCHP  2 0.04  -- TIPS
-  , Holding GII   4 0.05  -- Global Infrastructure
-  , Holding PSAU  3 0.01  -- Mining
+  [ Holding SCHB 24 0.22  -- US Broad
+  , Holding SCHF 31 0.16  -- Foreign Developed
+  , Holding SCHE 30 0.14  -- Emerging Markets
+  , Holding SCHD 10 0.08  -- US Dividend
+  , Holding TFI  25 0.21  -- Municipal Bond
+  , Holding BWX  13 0.06  -- Intl. Treasury Bond
+  , Holding SCHP  4 0.04  -- TIPS
+  , Holding GII   5 0.05  -- Global Infrastructure
+  , Holding PSAU  4 0.01  -- Mining
   , Holding GLTR  1 0.01  -- Precious Metals
-  , Holding CGW   2 0.02  -- Water
+  , Holding CGW   3 0.02  -- Water
   ]
 
 -- Symbol, Current Shares, Percent Target
