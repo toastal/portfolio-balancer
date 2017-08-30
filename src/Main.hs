@@ -20,16 +20,13 @@ import qualified Data.Map.Lazy as Map
 import Data.Text.Lens (_Text)
 import qualified Network.Wreq as Wreq
 
-newtype Price =
-  Price { unprice :: Rational }
+newtype Price = Price { unprice :: Rational }
   deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
-newtype Share =
-  Share { unshare :: Int }
+newtype Share = Share { unshare :: Int }
   deriving (Eq, Num, Ord, Real, Show)
 
-newtype Target =
-  Target { untarget :: Rational }
+newtype Target = Target { untarget :: Rational }
   deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
 -- Edit These
@@ -51,33 +48,33 @@ data Ticker
 
 -- Schwab Zero-Commission ETFs @ Lower Risk
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
-holdings :: [Holding]
-holdings =
-  [ Holding SCHB 24 0.22  -- US Broad
-  , Holding SCHF 31 0.16  -- Foreign Developed
-  , Holding SCHE 30 0.14  -- Emerging Markets
-  , Holding SCHD 10 0.08  -- US Dividend
-  , Holding TFI  25 0.21  -- Municipal Bond
-  , Holding BWX  13 0.06  -- Intl. Treasury Bond
-  , Holding SCHP  4 0.04  -- TIPS
-  , Holding GII   5 0.05  -- Global Infrastructure
-  , Holding PSAU  4 0.01  -- Mining
-  , Holding GLTR  1 0.01  -- Precious Metals
-  , Holding CGW   3 0.02  -- Water
+positions :: [Position]
+positions =
+  [ Position SCHB 30 0.22  -- US Broad
+  , Position SCHF 42 0.15  -- Foreign Developed
+  , Position SCHE 47 0.15  -- Emerging Markets
+  , Position SCHD 14 0.08  -- US Dividend
+  , Position TFI  35 0.21  -- Municipal Bond
+  , Position BWX  17 0.06  -- Intl. Treasury Bond
+  , Position SCHP  5 0.04  -- TIPS
+  , Position GII   7 0.05  -- Global Infrastructure
+  , Position PSAU  5 0.01  -- Mining
+  , Position GLTR  1 0.01  -- Precious Metals
+  , Position CGW   5 0.02  -- Water
   ]
 
 -- Symbol, Current Shares, Percent Target
-data Holding = Holding
+data Position = Position
   { _ticker :: Ticker
   , _shares :: Share
   , _target :: Target
   } deriving (Eq)
 
-makeLenses ''Holding
+makeLenses ''Position
 
 -- TODO: yeah
-instance Show Holding where
-  show (Holding s h t) =
+instance Show Position where
+  show (Position s h t) =
     show s <> " : " <> show (unshare h) <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
 
 type StockPrices = Map Ticker Price
@@ -96,19 +93,19 @@ googleFinanceAPI =
   "https://finance.google.com/finance/info?client=ig&alt=json&q="
     <> (List.intercalate "," $ show <$> [ (minBound :: Ticker) .. ])
 
-holdingsTotal :: StockPrices -> Rational -> [Holding] -> Rational
-holdingsTotal prices =
+positionsTotal :: StockPrices -> Rational -> [Position] -> Rational
+positionsTotal prices =
   foldl $ \total h ->
     let price = Map.findWithDefault 0.0 (h ^. ticker) prices
     in total + (unprice price * toRational (h ^. shares))
 
 
--- Mean of the deltas between a pair of holdings
-holdingsTargetDelta :: [Holding] -> [Holding] -> Rational
-holdingsTargetDelta xs ys =
+-- Mean of the deltas between a pair of positions
+positionsTargetDelta :: [Position] -> [Position] -> Rational
+positionsTargetDelta xs ys =
   abs . mean $ zipWith ((fmap . fmap) untarget subtract') xs ys
   where
-    subtract' :: Holding -> Holding -> Target
+    subtract' :: Position -> Position -> Target
     subtract' x y =
       (x ^. target) - (y ^. target)
 
@@ -117,13 +114,13 @@ holdingsTargetDelta xs ys =
       [] -> 1000.0  -- really far-off number
       zs -> sum zs / (fromIntegral . length) zs
 
--- Increments holding, then recalculates the percentages
-incHoldingWhere :: StockPrices -> Rational -> Ticker -> E [Holding]
-incHoldingWhere prices value sym =
-  map (\holding ->
+-- Increments position, then recalculates the percentages
+incPositionWhere :: StockPrices -> Rational -> Ticker -> E [Position]
+incPositionWhere prices value sym =
+  map (\pos ->
     let
-      h :: Holding
-      h = if holding ^. ticker == sym then holding & shares +~ 1 else holding
+      h :: Position
+      h = if pos ^. ticker == sym then pos & shares +~ 1 else pos
 
       p :: Rational
       p = unprice $ Map.findWithDefault 0.0 (h ^. ticker) prices
@@ -132,12 +129,12 @@ incHoldingWhere prices value sym =
   )
 
 
---redistribute :: StockPrices -> Rational -> (Rational, [Holding])
+--redistribute :: StockPrices -> Rational -> (Rational, [Position])
 redistribute totalValue prices =
   possible leftoverAfterEstimate (pricesToTest leftoverAfterEstimate $ Map.toList prices)
   where
-    underEstimate :: E Holding
-    underEstimate (Holding s _ t) =
+    underEstimate :: E Position
+    underEstimate (Position s _ t) =
       let
         price :: Rational
         price =
@@ -147,16 +144,16 @@ redistribute totalValue prices =
         share' =
           floor $ (untarget t) * totalValue / price
       in
-        Holding s (Share share') (Target $ (fromIntegral share') * price / totalValue)
+        Position s (Share share') (Target $ (fromIntegral share') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
-    estimate :: [Holding]
+    estimate :: [Position]
     estimate =
-      underEstimate <$> holdings
+      underEstimate <$> positions
 
     leftoverAfterEstimate :: Rational
     leftoverAfterEstimate =
-      totalValue - holdingsTotal prices 0.0 estimate
+      totalValue - positionsTotal prices 0.0 estimate
 
     pricesToTest :: Rational -> E [(Ticker, Price)]
     pricesToTest leftover =
@@ -185,11 +182,11 @@ redistribute totalValue prices =
         if leftover < 0 then [] else [t] : foldr foldover [] (possible' leftover nextPrices)
 
 -- TODO: this is garbage
-refine :: StockPrices -> Rational -> (Rational, [Holding])
+refine :: StockPrices -> Rational -> (Rational, [Position])
 refine prices totalValue =
   ref (pricesToTest leftC prices)
     leftC
-    ( (holdingsTargetDelta holdings estimate)
+    ( (positionsTargetDelta positions estimate)
     , estimate
     )
   where
@@ -199,10 +196,10 @@ refine prices totalValue =
 
     leftC :: Rational
     leftC =
-      totalValue - holdingsTotal prices 0.0 holdings
+      totalValue - positionsTotal prices 0.0 positions
 
-    underEstimate :: E Holding
-    underEstimate (Holding s _ t) =
+    underEstimate :: E Position
+    underEstimate (Position s _ t) =
       let
         price :: Rational
         price =
@@ -212,41 +209,41 @@ refine prices totalValue =
         share' =
           floor $ (untarget t) * totalValue / price
       in
-        Holding s (Share share') (Target $ (fromIntegral share') * price / totalValue)
+        Position s (Share share') (Target $ (fromIntegral share') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
-    estimate :: [Holding]
+    estimate :: [Position]
     estimate =
-      underEstimate <$> holdings
+      underEstimate <$> positions
 
     -- This would be better solved via a 'coin counting' algorithm
-    ref :: StockPrices -> Rational -> E (Rational, [Holding])
+    ref :: StockPrices -> Rational -> E (Rational, [Position])
     ref filtPrices leftoverCash initial =
       if Map.null filtPrices then
         initial
       else
         let
-          incH :: Ticker -> E [Holding]
+          incH :: Ticker -> E [Position]
           incH =
-            incHoldingWhere prices totalValue
+            incPositionWhere prices totalValue
 
-          testValues :: (Rational, [Holding]) -> Ticker -> Price -> (Rational, [Holding])
+          testValues :: (Rational, [Position]) -> Ticker -> Price -> (Rational, [Position])
           testValues acc@( d, hs ) sym _price =
             let
-              hs' :: [Holding]
+              hs' :: [Position]
               hs' =
                 incH sym hs
 
               d' :: Rational
               d' =
-                holdingsTargetDelta hs hs'
+                positionsTargetDelta hs hs'
             in
               if d' < d then
                 ( d', hs' )
               else
                 acc
 
-          best :: (Rational, [Holding])
+          best :: (Rational, [Position])
           best =
             Map.foldlWithKey' testValues initial filtPrices
         in
@@ -256,7 +253,7 @@ refine prices totalValue =
             let
               lc :: Rational
               lc =
-                totalValue  - (holdingsTotal prices 0.0 $ best ^. _2)
+                totalValue  - (positionsTotal prices 0.0 $ best ^. _2)
             in
               ref (pricesToTest lc filtPrices) lc best
 
@@ -281,13 +278,13 @@ main = do
     -- TODO insert CLI var
     totalValue :: Rational
     totalValue =
-      holdingsTotal prices (toRational transfer) holdings
+      positionsTotal prices (toRational transfer) positions
 
-    ( leftoverCash, newHoldings ) =
+    ( leftoverCash, newPositions ) =
       refine prices totalValue
 
 
-  mapM_ print newHoldings
+  mapM_ print newPositions
   putStrLn $ "Cash: $" <> show (fromIntegral (round $ leftoverCash * 100) / 100)
   putStrLn $ "Total: $" <> show (fromRational totalValue)
   --mapM_ print $  redistribute totalValue prices
