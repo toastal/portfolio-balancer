@@ -42,7 +42,6 @@ data Ticker
   | SCHP
   | GII
   | FUTY
-  | PSAU
   | PICK
   | GLTR
   | CGW
