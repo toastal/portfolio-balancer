@@ -59,12 +59,12 @@ positions =
   , Position SCHE 52 0.15  -- 0.13 Emerging Markets
   , Position SCHD 16 0.08  -- 0.07 US Dividend
   , Position VTEB 38 0.21  -- 0.09 US Municipal Bond (0.23 TFI)
+  , Position SCHP  6 0.04  -- 0.05 US TIPS
   , Position BWX  19 0.06  -- 0.50 Intl. Treasury Bond
-  , Position SCHP  6 0.04  -- 0.05 TIPS
-  , Position GII   8 0.03  -- 0.40 Global Infrastructure
-  , Position FUTY  0 0.02  -- 0.08 US Utilities
+  , Position GII   5 0.03  -- 0.40 Global Infrastructure
+  , Position FUTY  5 0.02  -- 0.08 US Utilities
   , Position PSAU  5 0.00  -- 0.75 Mining
-  , Position PICK  0 0.01  -- 0.39 Mining (0.75 PSAU)
+  , Position PICK  3 0.01  -- 0.39 Mining (0.75 PSAU)
   , Position GLTR  1 0.01  -- 0.60 Precious Metals
   , Position CGW   5 0.02  -- 0.64 Water
   ]
