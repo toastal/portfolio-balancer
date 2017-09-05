@@ -37,30 +37,36 @@ data Ticker
   | SCHF
   | SCHE
   | SCHD
-  | TFI
+  | VTEB
   | BWX
   | SCHP
   | GII
+  | FUTY
   | PSAU
+  | PICK
   | GLTR
   | CGW
   deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
 -- Schwab Zero-Commission ETFs @ Lower Risk
--- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.asp
+-- Currently I have 6 years of free trading so I'm choosing VTEB
+-- over TFI & PICK over PSAU, saving 0.14% & 0.36% respectively.
+-- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.aspw
 positions :: [Position]
 positions =
-  [ Position SCHB 30 0.22  -- US Broad
-  , Position SCHF 42 0.15  -- Foreign Developed
-  , Position SCHE 47 0.15  -- Emerging Markets
-  , Position SCHD 14 0.08  -- US Dividend
-  , Position TFI  35 0.21  -- Municipal Bond
-  , Position BWX  17 0.06  -- Intl. Treasury Bond
-  , Position SCHP  5 0.04  -- TIPS
-  , Position GII   7 0.05  -- Global Infrastructure
-  , Position PSAU  5 0.01  -- Mining
-  , Position GLTR  1 0.01  -- Precious Metals
-  , Position CGW   5 0.02  -- Water
+  [ Position SCHB 35 0.22  -- 0.03 US Broad
+  , Position SCHF 44 0.15  -- 0.06 Foreign Developed
+  , Position SCHE 52 0.15  -- 0.13 Emerging Markets
+  , Position SCHD 16 0.08  -- 0.07 US Dividend
+  , Position VTEB 38 0.21  -- 0.09 US Municipal Bond (0.23 TFI)
+  , Position BWX  19 0.06  -- 0.50 Intl. Treasury Bond
+  , Position SCHP  6 0.04  -- 0.05 TIPS
+  , Position GII   8 0.03  -- 0.40 Global Infrastructure
+  , Position FUTY  0 0.02  -- 0.08 US Utilities
+  , Position PSAU  5 0.00  -- 0.75 Mining
+  , Position PICK  0 0.01  -- 0.39 Mining (0.75 PSAU)
+  , Position GLTR  1 0.01  -- 0.60 Precious Metals
+  , Position CGW   5 0.02  -- 0.64 Water
   ]
 
 -- Symbol, Current Shares, Percent Target
