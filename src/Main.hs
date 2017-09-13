@@ -96,7 +96,7 @@ toStockPriceTuple v =
 
 yahooFinanceAPI :: String
 yahooFinanceAPI =
-  "https://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select * from yahoo.finance.quotes where symbol in (\""
+  "https://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select Symbol,LastTradePriceOnly from yahoo.finance.quotes where symbol in (\""
     <> (List.intercalate "," $ show <$> [ (minBound :: Symbol) .. ])
     <> "\")"
 
