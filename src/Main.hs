@@ -1,32 +1,42 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, LambdaCase, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Main where
 
-import Debug.Trace
-import Control.Arrow ((>>>))
-import Control.Lens
-import Control.Lens.TH (makeLenses)
-import Data.Aeson.Types as AT
-import Data.Aeson.Lens (AsValue, _Number, _String, key, values)
-import Data.Bitraversable (bitraverse)
-import qualified Data.ByteString.Lazy as BS
-import qualified Data.ByteString.Internal as BSI
-import qualified Data.List as List
-import Data.Monoid ((<>))
-import Data.Monoid.Endo (E)
-import qualified Data.Maybe as Maybe
-import Data.Map.Lazy (Map)
-import qualified Data.Map.Lazy as Map
-import Data.Text.Lens (_Text)
-import qualified Network.Wreq as Wreq
+import           Prelude
 
-newtype Price = Price { unprice :: Rational }
+import           Control.Arrow            ((>>>))
+import           Control.Lens
+import           Control.Lens.TH          (makeLenses)
+import           Control.Lens.Tuple
+import           Data.Aeson.Lens          (AsValue, key, members, values,
+                                           _Number, _Object, _String)
+import           Data.Aeson.Types         as AT
+import           Data.Bitraversable       (bitraverse)
+import qualified Data.ByteString.Internal as BSI
+import qualified Data.ByteString.Lazy     as BS
+import qualified Data.HashMap.Lazy        (HashMap)
+import qualified Data.HashMap.Lazy        as HashMap
+import qualified Data.List                as List
+import           Data.Map.Lazy            (Map)
+import qualified Data.Map.Lazy            as Map
+import qualified Data.Maybe               as Maybe
+import           Data.Monoid              ((<>))
+import           Data.Monoid.Endo         (E)
+import           Data.Text                (Text)
+import           Data.Text.Lens           (_Text)
+import           Debug.Trace
+import qualified Network.Wreq             as Wreq
+
+newtype Price = Price { unprice ∷ Rational }
   deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
-newtype Share = Share { unshare :: Int }
+newtype Share = Share { unshare ∷ Int }
   deriving (Eq, Num, Ord, Real, Show)
 
-newtype Target = Target { untarget :: Rational }
+newtype Target = Target { untarget ∷ Rational }
   deriving (Fractional, Eq, Num, Ord, Real, RealFrac, Show)
 
 -- Edit These
@@ -49,17 +59,18 @@ data Symbol
 
 -- Schwab Zero-Commission ETFs @ Lower Risk
 -- Currently I have 6 years of free trading so I'm choosing VTEB
--- over TFI & PICK over PSAU, saving 0.14% & 0.36% respectively.
+-- over TFI & PICK over PSAU, saving 0.14% & 0.36% in expennse
+-- ratios respectively.
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.aspw
-positions :: [Position]
+positions ∷ [Position]
 positions =
-  [ Position SCHB 35 0.23  -- 0.03 US Broad
+  [ Position SCHB 37 0.23  -- 0.03 US Broad
   , Position SCHF 44 0.15  -- 0.06 Foreign Developed
-  , Position SCHE 52 0.15  -- 0.13 Emerging Markets
-  , Position SCHD 16 0.08  -- 0.07 US Dividend
-  , Position VTEB 38 0.21  -- 0.09 US Municipal Bond (0.23 TFI)
-  , Position SCHP  6 0.03  -- 0.05 US TIPS
-  , Position BWX  19 0.06  -- 0.50 Intl. Treasury Bond
+  , Position SCHE 54 0.14  -- 0.13 Emerging Markets
+  , Position SCHD 16 0.10  -- 0.07 US Dividend
+  , Position VTEB 38 0.20  -- 0.09 US Municipal Bond (0.23 TFI)
+  , Position SCHP  5 0.04  -- 0.05 US TIPS
+  , Position BWX  20 0.05  -- 0.50 Intl. Treasury Bond
   , Position GII   5 0.03  -- 0.40 Global Infrastructure
   , Position FUTY  5 0.02  -- 0.08 US Utilities
   , Position CGW   5 0.02  -- 0.64 Water
@@ -69,9 +80,9 @@ positions =
 
 -- Symbol, Current Shares, Percent Target
 data Position = Position
-  { _symbol :: Symbol
-  , _shares :: Share
-  , _target :: Target
+  { _symbol ∷ Symbol
+  , _shares ∷ Share
+  , _target ∷ Target
   } deriving (Eq)
 
 makeLenses ''Position
@@ -81,115 +92,137 @@ instance Show Position where
   show (Position s h t) =
     show s <> " : " <> show (unshare h) <> " - " <> show (fromIntegral (round $ t * 1000) / 10) <> "%"
 
-type StockPrices = Map Symbol Price
+type StockPrices =
+  Map Symbol Price
 
-_Symbol :: Prism' AT.Value Symbol
+_Symbol ∷ Prism' AT.Value Symbol
 _Symbol =
   _String . _Text . _Show
 
-toStockPriceTuple :: AsValue t => t -> Maybe ( Symbol, Price )
-toStockPriceTuple v =
-  bitraverse (v ^?) (\p -> v ^? p <&> Price . toRational)
-    ( key "Symbol" . _Symbol
-    , key "LastTradePriceOnly" . _String . _Number
-    )
 
-yahooFinanceAPI :: String
-yahooFinanceAPI =
-  "https://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select Symbol,LastTradePriceOnly from yahoo.finance.quotes where symbol in (\""
-    <> (List.intercalate "," $ show <$> [ (minBound :: Symbol) .. ])
-    <> "\")"
+--respObjToStockPrices ∷ AsValue t ⇒ ( Text, t ) → StockPrices
+respObjToStockPrices ∷ HashMap.HashMap Text Value → StockPrices
+respObjToStockPrices =
+  HashMap.foldrWithKey fn Map.empty
+  where
+    fn ∷ Text → Value → E StockPrices
+    fn sym value acc =
+      case
+        ( sym ^? _Text . _Show
+        , value ^? key "quote" . key "latestPrice" . _Number <&> Price . toRational
+        )
+      of
+        ( Just symbol, Just value ) → Map.insert symbol value acc
+        _                           → acc
 
-positionsTotal :: StockPrices -> Rational -> [Position] -> Rational
+    --toStockPriceTuple ∷ ( Text, Value ) → Maybe ( Symbol, Price )
+    --toStockPriceTuple x =
+    --  bitraverse (x ^?) (\p → x ^? p <&> Price . toRational)
+    --    ( _Symbol
+    --    , _2 . key "latestPrice" . _Number
+    --    )
+
+
+--https://iextrading.com/developer/docs/#attribution
+iexTradingAPI ∷ String
+iexTradingAPI =
+  "https://api.iextrading.com/1.0/stock/market/batch?types=quote&filter=symbol,latestPrice&symbols="
+    <> (List.intercalate "," $ show <$> [ (minBound ∷ Symbol) .. ])
+
+positionsTotal ∷ StockPrices → Rational → [Position] → Rational
 positionsTotal prices =
-  foldl $ \total h ->
-    let price = Map.findWithDefault 0.0 (h ^. symbol) prices
-    in total + (unprice price * toRational (h ^. shares))
+  foldl $ \total h →
+    let
+      price ∷ Rational
+      price = maybe 0.0 unprice $ Map.lookup (h ^. symbol) prices
+    in
+      total + (price * toRational (h ^. shares))
 
 
 -- Mean of the deltas between a pair of positions
-positionsTargetDelta :: [Position] -> [Position] -> Rational
+positionsTargetDelta ∷ [Position] → [Position] → Rational
 positionsTargetDelta xs ys =
-  abs . mean $ zipWith (\x y -> untarget $ diff x y) xs ys
+  abs . mean $ zipWith (\x y → untarget $ diff x y) xs ys
   where
-    diff :: Position -> Position -> Target
+    diff ∷ Position → Position → Target
     diff x y =
       (x ^. target) - (y ^. target)
 
-    mean :: [Rational] -> Rational
+    mean ∷ [Rational] → Rational
     mean = \case
-      [] -> 1000.0  -- really far-off number
-      zs -> sum zs / (fromIntegral . length) zs
+      [] → 100000.0  -- really far-off number
+      zs → sum zs / (fromIntegral . length) zs
 
 -- Increments position, then recalculates the percentages
-incPositionWhere :: StockPrices -> Rational -> Symbol -> E [Position]
+incPositionWhere ∷ StockPrices → Rational → Symbol → E [Position]
 incPositionWhere prices value sym =
-  map (\pos ->
+  map (\pos →
     let
-      h :: Position
+      h ∷ Position
       h = if pos ^. symbol == sym then pos & shares +~ 1 else pos
 
-      p :: Rational
-      p = unprice $ Map.findWithDefault 0.0 (h ^. symbol) prices
+      p ∷ Rational
+      p = maybe 0.0 unprice $ Map.lookup (h ^. symbol) prices
     in
       h & target .~ Target (p * (h ^. shares & toRational) / value)
   )
 
 
---redistribute :: StockPrices -> Rational -> (Rational, [Position])
+--redistribute ∷ StockPrices → Rational → (Rational, [Position])
+{-
 redistribute totalValue prices =
   possible leftoverAfterEstimate (pricesToTest leftoverAfterEstimate $ Map.toList prices)
   where
-    underEstimate :: E Position
+    underEstimate ∷ E Position
     underEstimate (Position s _ t) =
       let
-        price :: Rational
-        price =
-          unprice $ Map.findWithDefault 0.0 s prices
+        price ∷ Rational
+        price = maybe 0.0 unprice $ Map.lookup s prices
 
-        share' :: Int
-        share' =
-          floor $ (untarget t) * totalValue / price
+        share' ∷ Int
+        share' = floor $ (untarget t) * totalValue / price
       in
         Position s (Share share') (Target $ (fromIntegral share') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
-    estimate :: [Position]
+    estimate ∷ [Position]
     estimate =
       underEstimate <$> positions
 
-    leftoverAfterEstimate :: Rational
+    leftoverAfterEstimate ∷ Rational
     leftoverAfterEstimate =
       totalValue - positionsTotal prices 0.0 estimate
 
-    pricesToTest :: Rational -> E [(Symbol, Price)]
+    pricesToTest ∷ Rational → E [(Symbol, Price)]
     pricesToTest leftover =
       --traceShowId .
-      filter (\(_, p) -> leftover > unprice p)
+      filter (\(_, p) → leftover > unprice p)
 
-    possible :: Rational -> [(Symbol, Price)] -> [[Symbol]]
+    possible ∷ Rational → [(Symbol, Price)] → [[Symbol]]
     possible lo ps = [] : possible' lo ps
 
     -- this foldr just doesn't seem to be doing it... I'm losing the leftover value
-    possible' :: Rational -> [(Symbol, Price)] -> [[Symbol]]
+    possible' ∷ Rational → [(Symbol, Price)] → [[Symbol]]
     possible' _ [] = []
     possible' lo (x@(t, p):ps) =
       let
-        leftover :: Rational
+        leftover ∷ Rational
         leftover = traceShow (fromRational $ lo - unprice p) (lo - unprice p)
 
-        nextPrices :: [(Symbol, Price)]
+        nextPrices ∷ [(Symbol, Price)]
         nextPrices = pricesToTest leftover (ps <> [traceShow (x ^. _2 & unprice & fromRational) x])
 
-        foldover :: [Symbol] -> [[Symbol]] -> [[Symbol]]
+        foldover ∷ [Symbol] → [[Symbol]] → [[Symbol]]
         foldover ts symbols =
           ts : (t : ts) : symbols
       in
         -- guard
         if leftover < 0 then [] else [t] : foldr foldover [] (possible' leftover nextPrices)
+-}
 
 -- TODO: this is garbage
-refine :: StockPrices -> Rational -> (Rational, [Position])
+{-
+refine ∷ StockPrices → Rational → (Rational, [Position])
 refine prices totalValue =
   ref (pricesToTest leftC prices)
     leftC
@@ -197,51 +230,49 @@ refine prices totalValue =
     , estimate
     )
   where
-    pricesToTest :: Rational -> E (StockPrices)
+    pricesToTest ∷ Rational → E (StockPrices)
     pricesToTest leftoverCash =
       Map.filter (Price leftoverCash >)
 
-    leftC :: Rational
+    leftC ∷ Rational
     leftC =
       totalValue - positionsTotal prices 0.0 positions
 
-    underEstimate :: E Position
+    underEstimate ∷ E Position
     underEstimate (Position s _ t) =
       let
-        price :: Rational
-        price =
-          unprice $ Map.findWithDefault 0.0 s prices
+        price ∷ Rational
+        price = maybe 0.0 unprice $ Map.lookup s prices
 
-        share' :: Int
-        share' =
-          floor $ (untarget t) * totalValue / price
+        share' ∷ Int
+        share' = floor $ (untarget t) * totalValue / price
       in
         Position s (Share share') (Target $ (fromIntegral share') * price / totalValue)
 
     -- This becomes the base as we know we'll have extra values
-    estimate :: [Position]
+    estimate ∷ [Position]
     estimate =
       underEstimate <$> positions
 
     -- This would be better solved via a 'coin counting' algorithm
-    ref :: StockPrices -> Rational -> E (Rational, [Position])
+    ref ∷ StockPrices → Rational → E (Rational, [Position])
     ref filtPrices leftoverCash initial =
       if Map.null filtPrices then
         initial
       else
         let
-          incH :: Symbol -> E [Position]
+          incH ∷ Symbol → E [Position]
           incH =
             incPositionWhere prices totalValue
 
-          testValues :: (Rational, [Position]) -> Symbol -> Price -> (Rational, [Position])
+          testValues ∷ (Rational, [Position]) → Symbol → Price → (Rational, [Position])
           testValues acc@( d, hs ) sym _price =
             let
-              hs' :: [Position]
+              hs' ∷ [Position]
               hs' =
                 incH sym hs
 
-              d' :: Rational
+              d' ∷ Rational
               d' =
                 positionsTargetDelta hs hs'
             in
@@ -250,7 +281,7 @@ refine prices totalValue =
               else
                 acc
 
-          best :: (Rational, [Position])
+          best ∷ (Rational, [Position])
           best =
             Map.foldlWithKey' testValues initial filtPrices
         in
@@ -258,42 +289,54 @@ refine prices totalValue =
             ( leftoverCash, initial ^. _2 )
           else
             let
-              lc :: Rational
+              lc ∷ Rational
               lc =
                 totalValue  - (positionsTotal prices 0.0 $ best ^. _2)
             in
               ref (pricesToTest lc filtPrices) lc best
+-}
 
-main :: IO ()
+coarseDistribute ∷ StockPrices → Rational → [Position]
+coarseDistribute prices totalValue =
+  underEstimate <$> positions
+  where
+    underEstimate ∷ E Position
+    underEstimate (Position s _ t) =
+      Position s (Share share') (Target $ (fromIntegral share') * price / totalValue)
+      where
+        price ∷ Rational
+        price = maybe 0.0 unprice $ Map.lookup s prices
+
+        share' ∷ Int
+        share' = floor $ (untarget t) * totalValue / price
+
+main ∷ IO ()
 main = do
   putStr "Amount to transfer: $"
-  transfer :: Float <- readLn
-  putStrLn "--------------------------------------"
+  transfer ∷ Float ← readLn
+  putStrLn "-------------------hashmap adt haskell-------------------"
+  let wreqOpts ∷ Wreq.Options = Wreq.defaults & Wreq.header "Accept" .~  [ "application/json" ]
+  r ∷ Wreq.Response BS.ByteString ← Wreq.getWith wreqOpts iexTradingAPI
   let
-    wreqOpts :: Wreq.Options
-    wreqOpts =
-      Wreq.defaults & Wreq.header "Accept" .~  [ "application/json" ]
-  r :: Wreq.Response BS.ByteString <-
-    Wreq.getWith wreqOpts yahooFinanceAPI
-  let
-    quoteVals =
-      key "query" . key "results" . key "quote" . values
-
-    -- Put in State
-    prices :: StockPrices
+    prices ∷ StockPrices
     prices =
-      Map.fromList . Maybe.mapMaybe toStockPriceTuple
-        $ r ^.. Wreq.responseBody . quoteVals
+      r ^.. Wreq.responseBody . _Object ^? element 0 & maybe Map.empty respObjToStockPrices
 
     -- TODO insert CLI var
-    totalValue :: Rational
+    totalValue ∷ Rational
     totalValue =
       positionsTotal prices (toRational transfer) positions
 
-    ( leftoverCash, newPositions ) =
-      refine prices totalValue
+    newPositions ∷ [Position]
+    newPositions =
+      coarseDistribute prices totalValue
 
+    leftoverCash ∷ Rational
+    leftoverCash =
+      positionsTotal prices 0 newPositions
+  print prices
   mapM_ print newPositions
   putStrLn $ "Cash: $" <> show (fromIntegral (round $ leftoverCash * 100) / 100)
   putStrLn $ "Total: $" <> show (fromRational totalValue)
   --mapM_ print $  redistribute totalValue prices
+  putStrLn "fin."
