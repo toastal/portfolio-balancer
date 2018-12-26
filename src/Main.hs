@@ -64,17 +64,17 @@ data Symbol
 -- http://www.schwab.com/public/schwab/investing/investment_help/investment_research/etf_research/etfs.html?&path=/Prospect/Research/etfs/overview/oneSourceETFs.aspw
 positions ∷ [Position]
 positions =
-  [ Position SCHB 37 0.23  -- 0.03 US Broad
-  , Position SCHF 44 0.15  -- 0.06 Foreign Developed
-  , Position SCHE 54 0.14  -- 0.13 Emerging Markets
+  [ Position SCHB 32 0.23  -- 0.03 US Broad
+  , Position SCHF 40 0.15  -- 0.06 Foreign Developed
+  , Position SCHE 44 0.14  -- 0.13 Emerging Markets
   , Position SCHD 16 0.10  -- 0.07 US Dividend
-  , Position VTEB 38 0.20  -- 0.09 US Municipal Bond (0.23 TFI)
-  , Position SCHP  5 0.04  -- 0.05 US TIPS
-  , Position BWX  20 0.05  -- 0.50 Intl. Treasury Bond
+  , Position VTEB 35 0.20  -- 0.09 US Municipal Bond (0.23 TFI)
+  , Position SCHP  6 0.04  -- 0.05 US TIPS
+  , Position BWX  15 0.05  -- 0.50 Intl. Treasury Bond
   , Position GII   5 0.03  -- 0.40 Global Infrastructure
   , Position FUTY  5 0.02  -- 0.08 US Utilities
   , Position CGW   5 0.02  -- 0.64 Water
-  , Position PICK  3 0.01  -- 0.39 Mining (0.75 PSAU)
+  , Position PICK  2 0.01  -- 0.39 Mining (0.75 PSAU)
   , Position GLTR  1 0.01  -- 0.60 Precious Metals
   ]
 
