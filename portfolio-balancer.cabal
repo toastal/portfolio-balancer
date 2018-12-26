@@ -1,5 +1,5 @@
 name:                portfolio-balancer
-version:             0.1.0.0
+version:             0.1.0.1
 -- synopsis:
 -- description:
 homepage:            https://github.com/githubuser/portfolio-balancer#readme
@@ -7,7 +7,7 @@ license:             MIT
 license-file:        LICENSE
 author:              toastal
 maintainer:          toastal@protonmail.com
-copyright:           toastal
+copyright:           2018 toastal
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -36,6 +36,3 @@ executable portfolio-balancer
                      , RankNTypes
                      , ScopedTypeVariables
                      , UnicodeSyntax
-
-
-

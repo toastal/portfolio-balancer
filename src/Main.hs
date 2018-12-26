@@ -99,6 +99,9 @@ _Symbol ∷ Prism' AT.Value Symbol
 _Symbol =
   _String . _Text . _Show
 
+data Possibility a
+  = Node a [Possibility a]
+  deriving (Eq, Read, Show)
 
 --respObjToStockPrices ∷ AsValue t ⇒ ( Text, t ) → StockPrices
 respObjToStockPrices ∷ HashMap.HashMap Text Value → StockPrices
@@ -114,13 +117,6 @@ respObjToStockPrices =
       of
         ( Just symbol, Just value ) → Map.insert symbol value acc
         _                           → acc
-
-    --toStockPriceTuple ∷ ( Text, Value ) → Maybe ( Symbol, Price )
-    --toStockPriceTuple x =
-    --  bitraverse (x ^?) (\p → x ^? p <&> Price . toRational)
-    --    ( _Symbol
-    --    , _2 . key "latestPrice" . _Number
-    --    )
 
 
 --https://iextrading.com/developer/docs/#attribution
